@@ -7,7 +7,7 @@
     ;; Build with -Wtype-mismatch to catch mismatches between addrs and immediates.
 
 !cpu 6510 	                    ; For 6502/6510 with undocumented opcodes
-!to "field.o",cbm               ; Direct the assembler to output to this file
+    ;; !to "field.o", plain            ; Direct the assembler to output to this file
 !zone field                     ; Namespacing
 	
 ;; 73 words prior to the user ROM end ($cfff)
@@ -15,19 +15,14 @@
 	
 	* = $c000                   ; Starting program counter on Commodore 64
 	
-	;; XXX Need a set place to store field elements on the zero page
-    ;; no this is a terrible fucking idea
-
-P434_PRIME = #$0002341F271773446CFC5FD681C520567BC65C783158AEA3FDC1767AE2FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-
-	;; XXX maybe funroll this?
 .field_element_modulus_store_byte:
-	STA (P434_PRIME_ADDR,X)     ; Store at $cfb6 (73 bytes offset from $cfff because 6-bit limbs)
+	STA ($cf,X)                ; Store at $cfb6 (73 bytes offset from $cfff because 6-bit limbs)
 	INX
 	RTS
 	
+	;; XXX this is big endian, reverse it
 field_element_modulus:
-	LDX #$00                    ; Address offset
+	LDX #$b6                    ; Address offset
     LDA #$00                    ; First byte of prime modulus
     JSR .field_element_modulus_store_byte
 	LDA #$02                    ; Second byte of prime modulus
@@ -143,17 +138,12 @@ field_element_modulus:
 
 ;; Takes a 112-byte (434-bit) hexademical string and stores it as a field element at #FE_LOADED.
 field_element_from_string:
-    xxx xx,xx
+    NOP
 
 ;; Add two field elements.
 field_element_add:
-    XXX xx,xx
+    NOP
 	
 ;; Subtract two field elements.
 field_element_sub:
-    XXX xx,xx
-	
-	;; XXX move me to a new file
-!zone constants
-	
-FE_LOADED = 
+    NOP
