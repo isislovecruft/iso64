@@ -1,6 +1,6 @@
+!cpu 6510
 !zone constants 
 	
-FE_LOADED = $#cf6d
-	
-.local:
-    NOP
+!addr FE_LOADED = $cf6d
+
+FE_WORDS = 63

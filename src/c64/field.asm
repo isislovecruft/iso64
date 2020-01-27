@@ -7,7 +7,6 @@
     ;; Build with -Wtype-mismatch to catch mismatches between addrs and immediates.
 
 !cpu 6510 	                    ; For 6502/6510 with undocumented opcodes
-    ;; !to "field.o", plain            ; Direct the assembler to output to this file
 !zone field                     ; Namespacing
 	
 ;; 73 words prior to the user ROM end ($cfff)
@@ -140,9 +139,58 @@ field_element_modulus:
 field_element_from_string:
     NOP
 
-;; Add two field elements.
-field_element_add:
-    NOP
+!addr MASK = $cfff              ; XXX move to constants.asm
+
+;; Returns .c = 0xff iff a < b and 0x00 otherwise.
+!macro ct_lt .a, .b, ~.c {
+    LDA .a                      ; a
+    SUB .b                      ; a-b
+    EOR .a                      ; (a-b)^a
+    STA .c                      ; c = (a-b)^a
+    LDA .a                      ; a
+    EOR .b                      ; a^b
+	ORA .c                      ; (a^b)|((a-b)^a)
+    EOR .a                      ; a^((a^b)|((a-b)^a))
+    ROR #$07                    ; (a^((a^b)|((a-b)^a))) >> 7
+    STA .c                      ; c = (a^((a^b)|((a-b)^a))) >> 7
+    LDA #$00                    ; 0x00
+    SUB .c                      ; 0x00 - ((a^((a^b)|((a-b)^a))) >> 7)
+    STA .c                      ; c = 0x00 - ((a^((a^b)|((a-b)^a))) >> 7)
+}
+
+;; Returns .c = 0xff if a == 0 and 0x00 otherwise.
+!macro ct_is_zero .a, ~.c {
+    LDA .a
+    EOR #$FF                    ; Bitwise-NOT .a to contain its two's-complement
+	TAX
+    LDA .a
+    SUB #$01                    ; a - 1
+	AND X                       ; ~a & (a -1)
+	STA .c                      ; c = ~a & (a -1)
+    LDA #$00                    ; 0x00
+    SUB .c                      ; 0x00 - (~a & (a -1))
+	STA .c                      ; c = 0x00 - (~a & (a -1))
+}
+
+;; 8-bit subtraction with carry
+!macro sbc_ct .borrowin, .minuend, .subtrahend, .borrowout, .differenceout, .tmp1, .tmp2 {
+    LDA .minuend
+    SBC .subtrahend
+    STA .tmp1                   ; tmp1 = minuend - subtrahend
+    +ct_lt .minuend .subtrahend MASK
+    LDA MASK
+	;; XXX can save four instructions here if we modify the macro to not do (0 - (a >> 7)) at the end
+    ROR #$07                    ; MASK is 1 iff minuend < subtrahend
+	STA MASK
+    
+}
+
+;; Add two field elements, C = A + B (mod P434_PRIME)
+!macro field_element_add .A, .B, .C {
+    !for i, 0, 63 {
+        NOP
+    }
+}
 	
 ;; Subtract two field elements.
 field_element_sub:
