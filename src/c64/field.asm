@@ -172,16 +172,30 @@ field_element_from_string:
 	STA .c                      ; c = 0x00 - (~a & (a -1))
 }
 
-;; 8-bit subtraction with carry
-!macro sbc_ct .borrowin, .minuend, .subtrahend, .borrowout, .differenceout, .tmp1, .tmp2 {
+;; 8-bit subtraction with carry in constant time.
+!macro ct_sbc .borrowin, .minuend, .subtrahend, ~.borrowout, ~.differenceout, ~.tmp1, ~.tmp2 {
     LDA .minuend
     SBC .subtrahend
     STA .tmp1                   ; tmp1 = minuend - subtrahend
     +ct_lt .minuend .subtrahend MASK
     LDA MASK
-	;; XXX can save four instructions here if we modify the macro to not do (0 - (a >> 7)) at the end
-    ROR #$07                    ; MASK is 1 iff minuend < subtrahend
-	STA MASK
+    ;; XXX can save four instructions here if we modify the macro to not do (0 - (a >> 7)) at the end
+    ROR #$07                    ; MASK is 1 iff minuend < subtrahend, 0 otherwise
+    STA MASK
+    +ct_is_zero .tmp1 .tmp2     ; tmp2 = 0xFF iff (minuend - subtrahend) == 0
+    LDA .borrowin
+    AND .tmp2
+    STA .tmp2                   ; tmp2 = borrowin & ct_is_zero(minuend - subtrahend)
+    LDA MASK
+    ORA .tmp2
+    STA .borrowout
+    LDA .tmp1
+    SUB .borrowin
+    STA .differenceout
+}
+
+;; 8-bit addition with carry in constant time.
+!macro ct_adc .carryin, .addend1, .addend2, ~.carryout, ~.sumout {
     
 }
 
