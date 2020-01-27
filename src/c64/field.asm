@@ -175,7 +175,7 @@ field_element_from_string:
 ;; 8-bit subtraction with carry in constant time.
 !macro ct_sbc .borrowin, .minuend, .subtrahend, ~.borrowout, ~.differenceout, ~.tmp1, ~.tmp2 {
     LDA .minuend
-    SBC .subtrahend
+    SBC .subtrahend             ; XXX should this be SUB instead since we're manually handling the borrow?
     STA .tmp1                   ; tmp1 = minuend - subtrahend
     +ct_lt .minuend .subtrahend MASK
     LDA MASK
@@ -195,8 +195,19 @@ field_element_from_string:
 }
 
 ;; 8-bit addition with carry in constant time.
-!macro ct_adc .carryin, .addend1, .addend2, ~.carryout, ~.sumout {
-    
+!macro ct_adc .carryin, .addend1, .addend2, ~.carryout, ~.sumout, ~.tmp1 {
+    LDA .addend1
+    ADC .carryin                ; XXX should this be ADD instead since we're manually handling the carry?
+    STA .tmp1                   ; tmp1 = addend1 + carryin
+    LDA .addend2
+    ADC .tmp1
+    STA .sumout                 ; sumout = addend2 + addend1 + carryin
+    +ct_lt .tmp1 .carryin MASK
+    LDA MASK
+    +ct_lt .sumout .tmp1 MASK
+    ORA MASK                    ; carryout = ((tmp1 < carryin) | (sumout < tmp1)) >> 7
+    ROR #$07
+    STA .carryout
 }
 
 ;; Add two field elements, C = A + B (mod P434_PRIME)
