@@ -1,30 +1,30 @@
     ;; XXX copyright and licence go here
-	
+
     ;; Arithmetic in a finite field of prime order.
 
-	;; Written for the ACME Cross-Assembler
-	;; 
+    ;; Written for the ACME Cross-Assembler
+    ;;
     ;; Build with -Wtype-mismatch to catch mismatches between addrs and immediates.
 
-!cpu 6510 	                    ; For 6502/6510 with undocumented opcodes
+!cpu 6510                       ; For 6502/6510 with undocumented opcodes
 !zone field                     ; Namespacing
-	
+
 ;; 73 words prior to the user ROM end ($cfff)
 !addr P434_PRIME_ADDR = $cfb6
-	
-	* = $c000                   ; Starting program counter on Commodore 64
-	
+
+    * = $c000                   ; Starting program counter on Commodore 64
+
 .field_element_modulus_store_byte:
-	STA ($cf,X)                ; Store at $cfb6 (73 bytes offset from $cfff because 6-bit limbs)
-	INX
-	RTS
-	
-	;; XXX this is big endian, reverse it
+    STA ($cf,X)                ; Store at $cfb6 (73 bytes offset from $cfff because 6-bit limbs)
+    INX
+    RTS
+
+    ;; XXX this is big endian, reverse it
 field_element_modulus:
-	LDX #$b6                    ; Address offset
+    LDX #$b6                    ; Address offset
     LDA #$00                    ; First byte of prime modulus
     JSR .field_element_modulus_store_byte
-	LDA #$02                    ; Second byte of prime modulus
+    LDA #$02                    ; Second byte of prime modulus
     JSR .field_element_modulus_store_byte
     LDA #$34                    ; Third byte
     JSR .field_element_modulus_store_byte
@@ -102,38 +102,38 @@ field_element_modulus:
     JSR .field_element_modulus_store_byte
     LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
+    LDA #$FF
     JSR .field_element_modulus_store_byte
-	LDA #$FF
-	JSR .field_element_modulus_store_byte
-	LDA #$FF
-	JSR .field_element_modulus_store_byte
-	LDA #$FF
-	JSR .field_element_modulus_store_byte
-	LDA #$FF
-	JSR .field_element_modulus_store_byte
-	LDA #$FF
-    RTS    
+    LDA #$FF
+    JSR .field_element_modulus_store_byte
+    LDA #$FF
+    JSR .field_element_modulus_store_byte
+    LDA #$FF
+    JSR .field_element_modulus_store_byte
+    LDA #$FF
+    JSR .field_element_modulus_store_byte
+    LDA #$FF
+    RTS
 
 ;; Takes a 112-byte (434-bit) hexademical string and stores it as a field element at #FE_LOADED.
 field_element_from_string:
@@ -149,7 +149,7 @@ field_element_from_string:
     STA .c                      ; c = (a-b)^a
     LDA .a                      ; a
     EOR .b                      ; a^b
-	ORA .c                      ; (a^b)|((a-b)^a)
+    ORA .c                      ; (a^b)|((a-b)^a)
     EOR .a                      ; a^((a^b)|((a-b)^a))
     ROR #$07                    ; (a^((a^b)|((a-b)^a))) >> 7
     STA .c                      ; c = (a^((a^b)|((a-b)^a))) >> 7
@@ -162,14 +162,14 @@ field_element_from_string:
 !macro ct_is_zero .a, ~.c {
     LDA .a
     EOR #$FF                    ; Bitwise-NOT .a to contain its two's-complement
-	TAX
+    TAX
     LDA .a
     SUB #$01                    ; a - 1
-	AND X                       ; ~a & (a -1)
-	STA .c                      ; c = ~a & (a -1)
+    AND X                       ; ~a & (a -1)
+    STA .c                      ; c = ~a & (a -1)
     LDA #$00                    ; 0x00
     SUB .c                      ; 0x00 - (~a & (a -1))
-	STA .c                      ; c = 0x00 - (~a & (a -1))
+    STA .c                      ; c = 0x00 - (~a & (a -1))
 }
 
 ;; 8-bit subtraction with carry in constant time.
@@ -247,13 +247,13 @@ field_element_from_string:
 ;; Add two field elements, C = A + B (mod P434_PRIME)
 !macro field_element_add .A, .B, .C {
     !for i, 0, FE_WORDS / 2 {
-	    STA (.C,i)
+        STA (.C,i)
         LDA FE_ADD_C_BYTE
         STA (.B,i)
         LDA FE_ADD_B_BYTE
         STA (.A,i)
         LDA FE_ADD_A_BYTE
-	    STA #$00                ; Zero the carries
+        STA #$00                ; Zero the carries
         LDA FE_ADD_CARRYIN
         STA #$00
         LDA FE_ADD_CARRYOUT
@@ -263,7 +263,7 @@ field_element_from_string:
         +ct_swap FE_ADD_CARRYIN FE_ADD_CARRYOUT #$01
     }
 }
-	
+
 ;; Subtract two field elements.
 field_element_sub:
     NOP
