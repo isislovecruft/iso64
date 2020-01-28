@@ -1,10 +1,17 @@
-    ;; XXX copyright and licence go here
+;; -*- mode: asm -*-
+;;
+;; This file is part of a Supersingular Isogeny Key Encapsulation (SIKE) over P434 for Commodore 64.
+;; Copyright (c) 2020 isis lovecruft
+;; See LICENSE for licensing information.
+;;
+;; Authors:
+;; - isis agora lovecruft <isis@patternsinthevoid.net>
 
-    ;; Arithmetic in a finite field of prime order.
+;; Arithmetic in a finite field of prime order.
 
-    ;; Written for the ACME Cross-Assembler
-    ;;
-    ;; Build with -Wtype-mismatch to catch mismatches between addrs and immediates.
+;; Written for the ACME Cross-Assembler
+;;
+;; Build with -Wtype-mismatch to catch mismatches between addrs and immediates.
 
 !cpu 6510                       ; For 6502/6510 with undocumented opcodes
 !zone field                     ; Namespacing
