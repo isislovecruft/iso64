@@ -1,4 +1,4 @@
-	;; XXX copyright and licence go here
+    ;; XXX copyright and licence go here
 	
     ;; Arithmetic in a finite field of prime order.
 
@@ -196,6 +196,7 @@ field_element_from_string:
 
 ;; 8-bit addition with carry in constant time.
 !macro ct_adc .carryin, .addend1, .addend2, ~.carryout, ~.sumout, ~.tmp1 {
+    CLC
     LDA .addend1
     ADC .carryin                ; XXX should this be ADD instead since we're manually handling the carry?
     STA .tmp1                   ; tmp1 = addend1 + carryin
@@ -210,10 +211,56 @@ field_element_from_string:
     STA .carryout
 }
 
+;; Constant-time conditional selection. If c = 0, set r = a, otherwise if c = 1, set r = b.
+!macro ct_select .a, .b, .c, ~.r {
+    LDA #$00                    ; 0x00 - { 0, => MASK = 00000000 (0)   if c=0 and
+    SUB .c                      ;        { 1, => MASK = 11111111 (-1)  if c=1
+    STA MASK
+    LDA .a
+    EOR .b                      ; a^b
+    AND MASK                    ; MASK&(a^b)
+    EOR .a                      ; a^(MASK&(a^b))
+    STA .r
+}
+
+;; Constant-time conditional assignment. If c = 0, a remains unchanged, otherwise if c = 1, then a = b.
+!macro ct_assign ~.a, .b, .c {
+    +ct_select .a, .b, .c, .a
+}
+
+;; Constant-time conditional swap. If c = 0, a and b remain unchanged. If c = 1, a and b are swapped.
+!macro ct_swap ~.a, ~.b, .c {
+    LDA .a
+    PHA                         ; Push the tmp variable to the stack
+    +ct_assign .a, .b, .c
+    PLA                         ; Pull it back out into the accumulator
+    +ct_assign .b, A, .c
+}
+
+!addr FE_ADD_TMP = $cff9        ; XXX move to constants.asm
+!addr FE_ADD_CARRYOUT = $cffa
+!addr FE_ADD_CARRYIN = $cffb
+!addr FE_ADD_A_BYTE = $cffc
+!addr FE_ADD_B_BYTE = $cffd
+!addr FE_ADD_C_BYTE = $cffe
+
 ;; Add two field elements, C = A + B (mod P434_PRIME)
 !macro field_element_add .A, .B, .C {
-    !for i, 0, 63 {
-        NOP
+    !for i, 0, FE_WORDS / 2 {
+	    STA (.C,i)
+        LDA FE_ADD_C_BYTE
+        STA (.B,i)
+        LDA FE_ADD_B_BYTE
+        STA (.A,i)
+        LDA FE_ADD_A_BYTE
+	    STA #$00                ; Zero the carries
+        LDA FE_ADD_CARRYIN
+        STA #$00
+        LDA FE_ADD_CARRYOUT
+        +ct_adc FE_ADD_CARRYIN FE_ADD_A_BYTE FE_ADD_B_BYTE FE_ADD_CARRYOUT FE_ADD_C_BYTE FE_ADD_TMP
+        ;; XXX Probably I did not need to do this in constant time since we're
+        ;;     always swapping, but fuck it, I have a constant time hammer.
+        +ct_swap FE_ADD_CARRYIN FE_ADD_CARRYOUT #$01
     }
 }
 	
