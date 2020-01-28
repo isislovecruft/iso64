@@ -7,5 +7,6 @@
 
 	;; Assemble and include the other source files
 !source "constants.asm"	
+!source "subtle.asm"
 !source "field.asm"
 !source "rand.asm"

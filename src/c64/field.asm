@@ -146,131 +146,51 @@ field_element_modulus:
 field_element_from_string:
     NOP
 
-!addr MASK = $cfff              ; XXX move to constants.asm
+;; Add two field elements, C = A + B (mod 2*P434_PRIME-1)
+;;
+;; Inputs
+;;  - A, B in [0, 2*P434_PRIME-1]
+;;
+;; Outputs
+;;  - C in [0, 2*P434_PRIME-1]
+!macro field_element_add .A, .B, ~.C {
+	LDA #$00                    ; Zero the carry
+    STA FE_ADD_CARRY
 
-;; Returns .c = 0xff iff a < b and 0x00 otherwise.
-!macro ct_lt .a, .b, ~.c {
-    LDA .a                      ; a
-    SUB .b                      ; a-b
-    EOR .a                      ; (a-b)^a
-    STA .c                      ; c = (a-b)^a
-    LDA .a                      ; a
-    EOR .b                      ; a^b
-    ORA .c                      ; (a^b)|((a-b)^a)
-    EOR .a                      ; a^((a^b)|((a-b)^a))
-    ROR #$07                    ; (a^((a^b)|((a-b)^a))) >> 7
-    STA .c                      ; c = (a^((a^b)|((a-b)^a))) >> 7
-    LDA #$00                    ; 0x00
-    SUB .c                      ; 0x00 - ((a^((a^b)|((a-b)^a))) >> 7)
-    STA .c                      ; c = 0x00 - ((a^((a^b)|((a-b)^a))) >> 7)
-}
+    !for .i, 0, FE_WORDS-1 {    ; Add the field elements
+	    LDX .i
+        +ct_adc FE_ADD_CARRY (.A,X) (.B,X) FE_ADD_CARRY (.C,X) FE_ADD_TMP1
+    }
 
-;; Returns .c = 0xff if a == 0 and 0x00 otherwise.
-!macro ct_is_zero .a, ~.c {
-    LDA .a
-    EOR #$FF                    ; Bitwise-NOT .a to contain its two's-complement
-    TAX
-    LDA .a
-    SUB #$01                    ; a - 1
-    AND X                       ; ~a & (a -1)
-    STA .c                      ; c = ~a & (a -1)
-    LDA #$00                    ; 0x00
-    SUB .c                      ; 0x00 - (~a & (a -1))
-    STA .c                      ; c = 0x00 - (~a & (a -1))
-}
+	LDA #$00                    ; Zero the carry again
+    STA FE_ADD_CARRY
 
-;; 8-bit subtraction with carry in constant time.
-!macro ct_sbc .borrowin, .minuend, .subtrahend, ~.borrowout, ~.differenceout, ~.tmp1, ~.tmp2 {
-    LDA .minuend
-    SBC .subtrahend             ; XXX should this be SUB instead since we're manually handling the borrow?
-    STA .tmp1                   ; tmp1 = minuend - subtrahend
-    +ct_lt .minuend .subtrahend MASK
-    LDA MASK
-    ;; XXX can save four instructions here if we modify the macro to not do (0 - (a >> 7)) at the end
-    ROR #$07                    ; MASK is 1 iff minuend < subtrahend, 0 otherwise
-    STA MASK
-    +ct_is_zero .tmp1 .tmp2     ; tmp2 = 0xFF iff (minuend - subtrahend) == 0
-    LDA .borrowin
-    AND .tmp2
-    STA .tmp2                   ; tmp2 = borrowin & ct_is_zero(minuend - subtrahend)
-    LDA MASK
-    ORA .tmp2
-    STA .borrowout
-    LDA .tmp1
-    SUB .borrowin
-    STA .differenceout
-}
+	!for .i, 0, FE_WORDS-1 {    ; Subtract any overflow
+	    LDX .i
+        +ct_sbc FE_ADD_CARRY (.C,X) (P434_PRIME_2,X) FE_ADD_CARRY (.C,X) FE_ADD_TMP1 FE_ADD_TMP2
+    }
 
-;; 8-bit addition with carry in constant time.
-!macro ct_adc .carryin, .addend1, .addend2, ~.carryout, ~.sumout, ~.tmp1 {
-    CLC
-    LDA .addend1
-    ADC .carryin                ; XXX should this be ADD instead since we're manually handling the carry?
-    STA .tmp1                   ; tmp1 = addend1 + carryin
-    LDA .addend2
-    ADC .tmp1
-    STA .sumout                 ; sumout = addend2 + addend1 + carryin
-    +ct_lt .tmp1 .carryin MASK
-    LDA MASK
-    +ct_lt .sumout .tmp1 MASK
-    ORA MASK                    ; carryout = ((tmp1 < carryin) | (sumout < tmp1)) >> 7
-    ROR #$07
-    STA .carryout
-}
-
-;; Constant-time conditional selection. If c = 0, set r = a, otherwise if c = 1, set r = b.
-!macro ct_select .a, .b, .c, ~.r {
-    LDA #$00                    ; 0x00 - { 0, => MASK = 00000000 (0)   if c=0 and
-    SUB .c                      ;        { 1, => MASK = 11111111 (-1)  if c=1
-    STA MASK
-    LDA .a
-    EOR .b                      ; a^b
-    AND MASK                    ; MASK&(a^b)
-    EOR .a                      ; a^(MASK&(a^b))
-    STA .r
-}
-
-;; Constant-time conditional assignment. If c = 0, a remains unchanged, otherwise if c = 1, then a = b.
-!macro ct_assign ~.a, .b, .c {
-    +ct_select .a, .b, .c, .a
-}
-
-;; Constant-time conditional swap. If c = 0, a and b remain unchanged. If c = 1, a and b are swapped.
-!macro ct_swap ~.a, ~.b, .c {
-    LDA .a
-    PHA                         ; Push the tmp variable to the stack
-    +ct_assign .a, .b, .c
-    PLA                         ; Pull it back out into the accumulator
-    +ct_assign .b, A, .c
-}
-
-!addr FE_ADD_TMP = $cff9        ; XXX move to constants.asm
-!addr FE_ADD_CARRYOUT = $cffa
-!addr FE_ADD_CARRYIN = $cffb
-!addr FE_ADD_A_BYTE = $cffc
-!addr FE_ADD_B_BYTE = $cffd
-!addr FE_ADD_C_BYTE = $cffe
-
-;; Add two field elements, C = A + B (mod P434_PRIME)
-!macro field_element_add .A, .B, .C {
-    !for i, 0, FE_WORDS / 2 {
-        STA (.C,i)
-        LDA FE_ADD_C_BYTE
-        STA (.B,i)
-        LDA FE_ADD_B_BYTE
-        STA (.A,i)
-        LDA FE_ADD_A_BYTE
-        STA #$00                ; Zero the carries
-        LDA FE_ADD_CARRYIN
-        STA #$00
-        LDA FE_ADD_CARRYOUT
-        +ct_adc FE_ADD_CARRYIN FE_ADD_A_BYTE FE_ADD_B_BYTE FE_ADD_CARRYOUT FE_ADD_C_BYTE FE_ADD_TMP
-        ;; XXX Probably I did not need to do this in constant time since we're
-        ;;     always swapping, but fuck it, I have a constant time hammer.
-        +ct_swap FE_ADD_CARRYIN FE_ADD_CARRYOUT #$01
+    LDA #$00
+    SUB FE_ADD_CARRY
+	STA MASK                    ; MASK = 0x00 - carry
+	LDA #$00
+    STA FE_ADD_CARRY            ; Zero the carry again
+	
+    !for .i, 0, FE_WORDS-1 {    ; Conditionally add the overflow back in
+        LDX .i
+	    LDA (P434_PRIME_2,X)
+        AND MASK                ; 2*P434_PRIME & MASK
+	    +ct_adc FE_ADD_CARRY (.C,X) A FE_ADD_CARRY (.C,X) FE_ADD_TMP1
     }
 }
 
-;; Subtract two field elements.
-field_element_sub:
+;; Subtract two field elements, C = A - B (mod 2*P434_PRIME-1)
+;;
+;; Inputs
+;;  - A, B in [0, 2*P434_PRIME-1]
+;;
+;; Outputs
+;;  - C in [0, 2*P434_PRIME-1]
+!macro field_element_sub .A, .B, ~.C {
     NOP
+}
