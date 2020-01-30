@@ -107,7 +107,7 @@
     ROR #$07
     STA .carryout
 }
-	
+
 !addr TMP1 = $cff8
 !addr TMP2 = $cff7
 
@@ -117,17 +117,17 @@
     SUB #1
     ROR #4
     STA MASK_LOW                ; MASK_LOW = -1 >> 4
-	
-	LDA #$00
+
+    LDA #$00
     SUB #1
     ROL #4
     STA MASK_HIGH               ; MASK_HIGH = -1 << 4
-	
+
     LDA .a
     AND MASK_LOW                ; lower bits of a
     STA TMP1                    ; save a_lower for the multiplication ahead
-	TAX
-	LDA .b
+    TAX
+    LDA .b
     AND MASK_LOW                ; lower bits of b
 
     ;; Oh my fucking god, my kingdom for a MUL instruction.
@@ -137,10 +137,10 @@
     ROR #4
     TAY                         ; upper bits of a
 }
-	
+
 !addr ADDER_REAL = $cff0             ; XXX move me
 !addr ADDER_FAKE = $cfef
-    
+
 ;; Multiply two 8-bit numbers into a 16-bit result, c = a * b, in variable time.
 ;;
 ;; 51 instructions best case (MUL #0); 67 instructions worst case (MUL #$FF)
@@ -165,24 +165,24 @@
 ;;
 ;; Output
 ;;  - c is 2 words, little endian
-;; 
+;;
 ;; 283 instructions, 374 cycles
 !macro ct_mul .a, .b, ~.c {
     LDA #0                      ; Initialize RESULT to 0
-	STA .c
+    STA .c
     LDX #8                      ; There are 8 bits in a
 .loop:                          ; Oh my fucking god, my kingdom for a MUL instruction.
-	LDY .a                      ; Load a into the "real" adder, for when mask is 1
-	STY $cff0
+    LDY .a                      ; Load a into the "real" adder, for when mask is 1
+    STY $cff0
     LDY #0                      ; Load 0 into the "fake" adder, for when mask is 0
     STY $cfef
     LSR .b                      ; Get low bit of b and shift it into the carry flag
-	PHP                         ; Push processor status onto the stack
+    PHP                         ; Push processor status onto the stack
     PLA                         ; Pull it off into the accumulator
-	AND #1                      ; Check if the LSB (carry bit from processor status) is set
-	STA #cfff                   ; MASK is 0 (do mul) or 1 (do add then mul)
-	+ct_swap $cfef $cff0 $cfff  ; If MASK=1 then add a then mul, otherwise if MASK=0 add 0 then mul
-	LDA .c
+    AND #1                      ; Check if the LSB (carry bit from processor status) is set
+    STA #cfff                   ; MASK is 0 (do mul) or 1 (do add then mul)
+    +ct_swap $cfef $cff0 $cfff  ; If MASK=1 then add a then mul, otherwise if MASK=0 add 0 then mul
+    LDA .c
     CLC                         ; Clear the carry bit
     ADC $cff0
     ROR A                       ; "Stairstep" shift (catching carry from add)
@@ -191,8 +191,8 @@
     BNE .loop                   ; Loop on X = {8, 7, ..., 0}, not on multiplicands which might be secret
     STA .c+1                    ; Store any overflow in the second word of the result
 }
-	
+
     ;; LSR .b                   ; Get low bit of b and shift it into the carry flag
-	;; ROR #0
+    ;; ROR #0
     ;; AND #$80
-	;; XXX would need to ROR #7 here? no ROR immediate so absolute would give us 6 cycles then some for LDA
+    ;; XXX would need to ROR #7 here? no ROR immediate so absolute would give us 6 cycles then some for LDA
