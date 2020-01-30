@@ -192,5 +192,33 @@ field_element_from_string:
 ;; Outputs
 ;;  - C in [0, 2*P434_PRIME-1]
 !macro field_element_sub .A, .B, ~.C {
-    NOP
+    LDA #$00                    ; Zero the borrow
+    STA FE_SUB_BORROW
+
+    !for .i, 0, FE_WORDS-1 {    ; Do the subtraction
+	    LDX .i
+        +ct_sbc FE_SUB_BORROW (.A,X) (.B,X) FE_SUB_BORROW (.C,X) FE_ADD_TMP1 FE_ADD_TMP2
+	    ;; XXX It's prooobably okay to reuse those tmps, right?
+    }
+	
+	LDA #$00
+	SUB FE_SUB_BORROW
+    STA MASK                    ; MASK = 0x00 - carry
+	LDA #$00
+    STA FE_SUB_CARRY            ; Zero the borrow again
+	
+    !for .i, 0, FE_WORDS-1 {
+	    LDX .i
+	    LDA (P434_PRIME_2,X)
+        AND MASK                ; 2*P434_PRIME & MASK
+        +ct_adc FE_SUB_BORROW (.C,X) A FE_SUB_BORROW (.C,X)
+    }
+}
+	
+!macro field_element_mul .A, .B, ~.C {
+	LDX #$00                    ; i = 0
+    LDY #$00                    ; j = 0
+
+.j:
+    
 }

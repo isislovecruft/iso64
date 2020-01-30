@@ -46,7 +46,7 @@
 ;; Constant-time conditional selection. If c = 0, set r = a, otherwise if c = 1, set r = b.
 !macro ct_select .a, .b, .c, ~.r {
     LDA #$00                    ; 0x00 - { 0, => MASK = 00000000 (0)   if c=0 and
-    SUB .c                      ;        { 1, => MASK = 11111111 (-1)  if c=1
+    SBC .c                      ;        { 1, => MASK = 11111111 (-1)  if c=1
     STA MASK
     LDA .a
     EOR .b                      ; a^b
@@ -106,4 +106,89 @@
     ORA MASK                    ; carryout = ((tmp1 < carryin) | (sumout < tmp1)) >> 7
     ROR #$07
     STA .carryout
+}
+	
+!addr TMP1 = $cff8
+!addr TMP2 = $cff7
+
+;; 8-bit widening (8-bit x 8-bit = 16-bit) multiplication in constant time.
+!macro ct_mul .a, .b, ~.c1, ~.c2 {
+    LDA #$00
+    SUB #1
+    ROR #4
+    STA MASK_LOW                ; MASK_LOW = -1 >> 4
+	
+	LDA #$00
+    SUB #1
+    ROL #4
+    STA MASK_HIGH               ; MASK_HIGH = -1 << 4
+	
+    LDA .a
+    AND MASK_LOW                ; lower bits of a
+    STA TMP1                    ; save a_lower for the multiplication ahead
+	TAX
+	LDA .b
+    AND MASK_LOW                ; lower bits of b
+
+    ;; Oh my fucking god, my kingdom for a MUL instruction.
+    ADC TMP1
+
+    LDA .a
+    ROR #4
+    TAY                         ; upper bits of a
+}
+	
+!macro wallace_8x8 .a, .b, ~.c {
+    
+}
+
+;; 51 instructions best case (MUL #0); 67 instructions worst case (MUL #$FF)
+;; 146 cycles                        ; 184 cycles
+!macro nonct_mul .a, .b, ~.c {
+    LDA #0                      ; Initialize RESULT to 0
+    LDX #8                      ; There are 8 bits in a
+.do_add:
+    LSR .b                      ; Get low bit of b
+    BCC .do_mul                 ; 0 or 1?
+    CLC                         ; If 1, add a
+    ADC .a
+.do_mul:
+    ROR A                       ; "Stairstep" shift (catching carry from add)
+    ROR .c
+    DEX
+    BNE .do_add
+    STA .c+1
+}
+
+!addr ADDER_REAL = $cff0             ; XXX move me
+!addr ADDER_FAKE = $cfef
+    
+;; Output
+;;  - c is 2 words, little endian
+;; 
+;; 283 instructions, 374 cycles
+!macro ct_mul .a, .b, ~.c {
+    LDA #0                      ; Initialize RESULT to 0
+	STA .c
+    LDX #8                      ; There are 8 bits in a
+    ;; Oh my fucking god, my kingdom for a MUL instruction.
+.loop:
+	LDY .a                      ; Load a into the "real" adder, for when mask is 1
+	STY ADDER_REAL
+    LDY #0                      ; Load 0 into the "fake" adder, for when mask is 0
+    STY ADDER_FAKE
+    LSR .b                      ; Get low bit of b and shift it into the carry flag
+	PHP                         ; Push processor status onto the stack
+    PLA                         ; Pull it off into the accumulator
+	AND #1                      ; Check if the LSB (carry bit from processor status) is set
+	STA MASK                    ; MASK is 0 (do mul) or 1 (do add then mul)
+	+ct_swap ADDER_FAKE ADDR_REAL MASK ; If MASK=1 then do add then mul
+	LDA .c
+    CLC                         ; Clear the carry bit
+    ADC ADDER_REAL
+    ROR A                       ; "Stairstep" shift (catching carry from add)
+    ROR .c
+    DEX
+    BNE .loop                   ; Loop on X = 8, 7, ..., 0, not on multiplicands which might be secret
+    STA .c+1
 }
