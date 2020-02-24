@@ -12,11 +12,13 @@ FE_WORDS = 56
 !addr MASK = $cfff
 !addr MASK_HIGH = $cffe
 !addr MASK_LOW = $cffd
-!addr FE_SUB_BORROW = $cffc
-!addr FE_ADD_CARRY = $cffb
-!addr FE_ADD_TMP2 = $cffa
-!addr FE_ADD_TMP1 = $cff9
-	
+!addr ADDER_REAL = $cffc
+!addr ADDER_FAKE = $cfeb
+!addr FE_SUB_BORROW = $cffa
+!addr FE_ADD_CARRY = $cff9
+!addr FE_ADD_TMP2 = $cff8
+!addr FE_ADD_TMP1 = $cff7
+
 ;; XXX should maybe double check these addresses to make sure we're not
 ;;     crossing page boundaries
 !addr FE_ADD_A = FE_ADD_TMP1 - (1 * FE_WORDS) ; Fuckin' fancy assembler parser passing.

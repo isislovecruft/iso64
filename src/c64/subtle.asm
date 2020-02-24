@@ -15,7 +15,7 @@
 ;; Returns .c = 0xff iff a < b and 0x00 otherwise.
 !macro ct_lt .a, .b, ~.c {
     LDA .a                      ; a
-    SUB .b                      ; a-b
+    SBC .b                      ; a-b
     EOR .a                      ; (a-b)^a
     STA .c                      ; c = (a-b)^a
     LDA .a                      ; a
@@ -25,7 +25,7 @@
     ROR #$07                    ; (a^((a^b)|((a-b)^a))) >> 7
     STA .c                      ; c = (a^((a^b)|((a-b)^a))) >> 7
     LDA #$00                    ; 0x00
-    SUB .c                      ; 0x00 - ((a^((a^b)|((a-b)^a))) >> 7)
+    SBC .c                      ; 0x00 - ((a^((a^b)|((a-b)^a))) >> 7)
     STA .c                      ; c = 0x00 - ((a^((a^b)|((a-b)^a))) >> 7)
 }
 
@@ -35,11 +35,11 @@
     EOR #$FF                    ; Bitwise-NOT .a to contain its two's-complement
     TAX
     LDA .a
-    SUB #$01                    ; a - 1
+    SBC #$01                    ; a - 1
     AND X                       ; ~a & (a -1)
     STA .c                      ; c = ~a & (a -1)
     LDA #$00                    ; 0x00
-    SUB .c                      ; 0x00 - (~a & (a -1))
+    SBC .c                      ; 0x00 - (~a & (a -1))
     STA .c                      ; c = 0x00 - (~a & (a -1))
 }
 
@@ -87,7 +87,7 @@
     ORA .tmp2
     STA .borrowout
     LDA .tmp1
-    SUB .borrowin
+    SBC .borrowin
     STA .differenceout
 }
 
@@ -107,39 +107,6 @@
     ROR #$07
     STA .carryout
 }
-
-!addr TMP1 = $cff8
-!addr TMP2 = $cff7
-
-;; 8-bit widening (8-bit x 8-bit = 16-bit) multiplication in constant time.
-!macro ct_mul .a, .b, ~.c1, ~.c2 {
-    LDA #$00
-    SUB #1
-    ROR #4
-    STA MASK_LOW                ; MASK_LOW = -1 >> 4
-
-    LDA #$00
-    SUB #1
-    ROL #4
-    STA MASK_HIGH               ; MASK_HIGH = -1 << 4
-
-    LDA .a
-    AND MASK_LOW                ; lower bits of a
-    STA TMP1                    ; save a_lower for the multiplication ahead
-    TAX
-    LDA .b
-    AND MASK_LOW                ; lower bits of b
-
-    ;; Oh my fucking god, my kingdom for a MUL instruction.
-    ADC TMP1
-
-    LDA .a
-    ROR #4
-    TAY                         ; upper bits of a
-}
-
-!addr ADDER_REAL = $cff0             ; XXX move me
-!addr ADDER_FAKE = $cfef
 
 ;; Multiply two 8-bit numbers into a 16-bit result, c = a * b, in variable time.
 ;;
@@ -173,18 +140,18 @@
     LDX #8                      ; There are 8 bits in a
 .loop:                          ; Oh my fucking god, my kingdom for a MUL instruction.
     LDY .a                      ; Load a into the "real" adder, for when mask is 1
-    STY $cff0
+    STY ADDER_REAL
     LDY #0                      ; Load 0 into the "fake" adder, for when mask is 0
-    STY $cfef
+    STY ADDER_FAKE
     LSR .b                      ; Get low bit of b and shift it into the carry flag
     PHP                         ; Push processor status onto the stack
     PLA                         ; Pull it off into the accumulator
     AND #1                      ; Check if the LSB (carry bit from processor status) is set
-    STA #cfff                   ; MASK is 0 (do mul) or 1 (do add then mul)
-    +ct_swap $cfef $cff0 $cfff  ; If MASK=1 then add a then mul, otherwise if MASK=0 add 0 then mul
+    STA MASK                    ; MASK is 0 (do mul) or 1 (do add then mul)
+    +ct_swap ADDER_FAKE ADDER_REAL MASK ; If MASK=1 then add a then mul, otherwise if MASK=0 add 0 then mul
     LDA .c
     CLC                         ; Clear the carry bit
-    ADC $cff0
+    ADC ADDER_REAL
     ROR A                       ; "Stairstep" shift (catching carry from add)
     ROR .c
     DEX

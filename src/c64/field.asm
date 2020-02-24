@@ -215,10 +215,46 @@ field_element_from_string:
     }
 }
 	
+!addr FE_MUL_RESULT = $cff0     ; 2 words
+!addr FE_MUL_CARRY = $cfee
+!addr FE_MUL_T = $cfed
+!addr FE_MUL_U = $cfec
+!addr FE_MUL_V = $cfeb
+!addr FE_MUL_TMP = $cfea
+	
 !macro field_element_mul .A, .B, ~.C {
-	LDX #$00                    ; i = 0
-    LDY #$00                    ; j = 0
+	LDA #0
+    STA FE_MUL_CARRY            ; Zero the carry
 
-.j:
-    
+	!for .i, 0, FE_WORDS-1 {
+        !for .j, 0, .i {
+	        LDA .i
+            SBC .j
+	        TAX                 ; X = i-j
+	        LDY .j              ; Y = j
+            +ct_mul (.A,Y) (.B,X) FE_MUL_RESULT+1 FE_MUL_RESULT
+	        +ct_adc FE_MUL_CARRY FE_MUL_RESULT   FE_MUL_V FE_MUL_CARRY FE_MUL_V FE_MUL_TMP
+	        +ct_adc FE_MUL_CARRY FE_MUL_RESULT+1 FE_MUL_U FE_MUL_CARRY FE_MUL_U FE_MUL_TMP
+	        LDA FE_MUL_T        ; T = T + carry
+	        CLC
+            ADC FE_MUL_CARRY
+        }
+	    LDX .i
+	    LDA FE_MUL_V
+        STA .c,X                ; C[i] = V
+	    LDA FE_MUL_U
+        STA FE_MUL_V            ; V = U
+	    LDA FE_MUL_T
+        STA FE_MUL_U            ; U = T
+        LDA #0
+        STA FE_MUL_T            ; T = 0
+    }
+	!for .i, 0, 2*FE_WORDS-1 {
+        !for .j, .i-FE_WORDS+1, FE_WORDS {
+            +ct_mul
+        }
+    }
 }
+	
+test_field_element_mul: 
+    
