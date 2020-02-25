@@ -1,5 +1,16 @@
-!cpu 6510
-!zone constants 
+;; -*- mode: asm -*-
+;;
+;; This file is part of a Supersingular Isogeny Key Encapsulation (SIKE) over P434 for Commodore 64.
+;; Copyright (c) 2020 isis lovecruft
+;; See LICENSE for licensing information.
+;;
+;; Authors:
+;; - isis agora lovecruft <isis@patternsinthevoid.net>
+
+;; Constants and pseudo registers.
+
+!cpu 6510                       ; For 6502/6510 with undocumented opcodes
+!zone constants                 ; Namespacing
 	
 ;; Number of words in a field element.
 ;;
@@ -9,24 +20,37 @@
 ;; "modern" CPUs.
 FE_WORDS = 56
 	
+;; Various cryptographic masks for constant-time operations.
 !addr MASK = $cfff
 !addr MASK_HIGH = $cffe
 !addr MASK_LOW = $cffd
+	
 !addr ADDER_REAL = $cffc
 !addr ADDER_FAKE = $cfeb
+	
+;; Pseudo registers for storing intermediate values during field element subtraction and addition.
 !addr FE_SUB_BORROW = $cffa
 !addr FE_ADD_CARRY = $cff9
 !addr FE_ADD_TMP2 = $cff8
 !addr FE_ADD_TMP1 = $cff7
 
+;; Pseudo registers for storing intermediate values during field element multiplication.
+!addr FE_MUL_RESULT = $cff0     ; 2 words
+!addr FE_MUL_CARRY = $cfee
+!addr FE_MUL_T = $cfed
+!addr FE_MUL_U = $cfec
+!addr FE_MUL_V = $cfeb
+!addr FE_MUL_TMP = $cfea
+
+
 ;; XXX should maybe double check these addresses to make sure we're not
 ;;     crossing page boundaries
-!addr FE_ADD_A = FE_ADD_TMP1 - (1 * FE_WORDS) ; Fuckin' fancy assembler parser passing.
-!addr FE_ADD_B = FE_ADD_TMP1 - (2 * FE_WORDS)
-!addr FE_ADD_C = FE_ADD_TMP1 - (3 * FE_WORDS)
+!addr FE_ADD_A = FE_MUL_TMP - (1 * FE_WORDS) ; Fuckin' fancy assembler parser passing.
+!addr FE_ADD_B = FE_MUL_TMP - (2 * FE_WORDS)
+!addr FE_ADD_C = FE_MUL_TMP - (3 * FE_WORDS)
 	
 ;; P434_PRIME = 24439423661345221551909145011457493619085780243761596511325807336205221239331976725970216671828618445898719026692884939342314733567
-!addr P434_PRIME = FE_ADD_TMP1 - (4 * FE_WORDS)
+!addr P434_PRIME = FE_MUL_TMP - (4 * FE_WORDS)
 
 	LDA *                       ; Save program counter
     PHA                         ; Push it to the global stack
@@ -40,7 +64,7 @@ FE_WORDS = 56
     * = MASK                    ; Restore it
 
 ;; 2 * P434_PRIME
-!addr P434_PRIME_2 = FE_ADD_TMP1 - (5 * FE_WORDS)
+!addr P434_PRIME_2 = FE_MUL_TMP - (5 * FE_WORDS)
 
 	LDA *                       ; Save program counter
     PHA                         ; Push it to the global stack
