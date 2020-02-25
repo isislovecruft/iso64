@@ -219,6 +219,8 @@ field_element_from_string:
 ;;
 ;; The bitlength of .A and .B should be FE_WORDS times the size of a
 ;; word (8-bits, obviously).
+;;
+;; We assume that we have at least 2 * FE_WORDS - 1 words in .C.
 !macro field_element_mul .A, .B, ~.C {
 	LDA #0
     STA FE_MUL_CARRY            ; Zero the carry
@@ -230,7 +232,7 @@ field_element_from_string:
 	        TAX                 ; X = i-j
 	        LDY .j              ; Y = j
             +ct_mul (.A,Y) (.B,X) FE_MUL_RESULT+1 FE_MUL_RESULT
-	        +ct_adc FE_MUL_CARRY FE_MUL_RESULT   FE_MUL_V FE_MUL_CARRY FE_MUL_V FE_MUL_TMP
+	        +ct_adc #0           FE_MUL_RESULT   FE_MUL_V FE_MUL_CARRY FE_MUL_V FE_MUL_TMP
 	        +ct_adc FE_MUL_CARRY FE_MUL_RESULT+1 FE_MUL_U FE_MUL_CARRY FE_MUL_U FE_MUL_TMP
 	        LDA FE_MUL_T        ; T = T + carry
 	        CLC
@@ -276,6 +278,111 @@ field_element_from_string:
     LDA FE_MUL_V
     STA .c,X                    ; C[2*FE_WORDS-1] = V
 }
+
+;; Montgomery reduce a field element .A by the P434 prime modulus and store it in .B.
+!macro field_element_reduce .A ~.B {
+	LDA #0
+    STA FE_RDC_CARRY            ; Zero the carry
+
+	;; COUNT = ZERO_WORDS, i.e. the number of least significant words in
+	;; P434_PRIME_PLUS_1 which are 0.
+    LDA ZERO_WORDS
+	STA FE_RDC_COUNT
+
+	!for .i, 0, FE_WORDS {      ; Zero out the result
+	    LDX .i
+	    LDA #0
+        STA (.B,X)
+    }
+
+	;; Multiply by the P434 prime.
+    !for .i, 0, FE_WORDS {
+        LDA .i
+        SBC ZERO_WORDS
+        CLC
+        ADC 1
+        STA FE_RDC_SKIP    ; FE_RDC_SKIP = .i - ZERO_WORDS + 1
+        !for .j, 0, FE_RDC_SKIP {
+	        LDA .i
+            SBC .j
+	        TAX                 ; X = i-j
+	        LDY .j              ; Y = j
+
+	        ;; Exploit the structure of the P434 prime, where if we add 1 we get
+            ;; a number whose first 192 bits are 0s.
+            +ct_mul (.B,Y) (P434_PRIME_PLUS_1,X) FE_RDC_RESULT+1 FE_RDC_RESULT
+            +ct_adc #0           FE_RDC_RESULT   FE_RDC_V FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
+            +ct_adc FE_RDC_CARRY FE_RDC_RESULT+1 FE_RDC_U FE_RDC_CARRY FE_RDC_U FE_RDC_TMP
+            LDA FE_RDC_T        ; T = T + carry
+            CLC
+            ADC FE_RDC_CARRY
+        }
+	    LDX .i
+	    +ct_adc #0           FE_RDC_V (.A,X) FE_RDC_CARRY FE_RDC_V
+        +ct_adc FE_RDC_CARRY FE_RDC_U #0     FE_RDC_CARRY FE_RDC_U
+        LDA FE_RDC_T            ; T = T + carry
+        CLC
+        ADC FE_RDC_CARRY
+	    LDX .i
+        LDA FE_RDC_V
+        STA (.B,X)              ; B[i] = V
+	    LDA FE_RDC_U
+        STA FE_RDC_V            ; V = U
+	    LDA FE_RDC_T
+        STA FE_RDC_U            ; U = T
+        LDA #0
+        STA FE_RDC_T            ; T = 0
+    }
+	;; Multiply by the 192 0-bits of the modulus
+	!for .i, FE_WORDS, 2*FE_WORDS-1 {
+	    ;; XXX rewrite the !if to use BEQ on the zero flag
+	    !if FE_RDC_COUNT > 0 {
+	        LDA FE_RDC_COUNT
+            SBC #1
+            STA FE_RDC_COUNT
+        }
+	    !for .j, .i-FE_WORDS+1, FE_WORDS-FE_RDC_COUNT {
+	        LDA .i
+            SBC .j
+	        TAX                 ; X = i-j
+	        LDY .j              ; Y = j
+
+            +ct_mul (.B,Y) (P434_PRIME_PLUS_ONE,X) FE_RDC_RESULT+1 FE_RDC_RESULT
+	        +ct_adc #0           FE_RDC_RESULT   FE_RDC_V FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
+            +ct_adc FE_RDC_CARRY FE_RDC_RESULT+1 FE_RDC_U FE_RDC_CARRY FE_RDC_U FE_RDC_TMP
+            LDA FE_RDC_T
+            CLC
+            ADC FE_RDC_CARRY
+        }
+	    LDX .i
+	    +ct_adc #0           FE_RDC_V (.A,X) FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
+        +ct_adc FE_RDC_CARRY FE_RDC_U #0     FE_RDC_CARRY FE_RDC_U FE_RDC_TMP
+        LDA FE_RDC_T
+        CLC
+        ADC FE_RDC_CARRY
+	    LDA .i
+	    SEC
+	    SBC FE_WORDS
+	    TAX
+        LDA FE_RDC_V
+        STA (.B,X)              ; B[i-FE_WORDS] = V
+	    LDA FE_RDC_U
+        STA FE_RDC_V            ; V = U
+	    LDA FE_RDC_T
+        STA FE_RDC_U            ; U = T
+        LDA #0
+        STA FE_RDC_T            ; T = 0
+    }
+	;; Deal with the final carry flag
+	;; 111 = 2 * FE_WORDS - 1
+	+ct_adc #0 FE_RDC_V .B+111 FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
+	;; 55 = FE_WORDS - 1
+    LDX 55
+    LDA FE_RDC_V
+    STA (.B,X)                  ; B[55] = V
+}
+
+	;; XXX Check SBCs we might need to SEC first
 
 test_field_element_mul:
 
