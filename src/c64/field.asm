@@ -175,7 +175,7 @@ field_element_from_string:
 	STA MASK                    ; MASK = 0x00 - carry
 	LDA #$00
     STA FE_ADD_CARRY            ; Zero the carry again
-	
+
     !for .i, 0, FE_WORDS-1 {    ; Conditionally add the overflow back in
         LDX .i
 	    LDA (P434_PRIME_2,X)
@@ -200,13 +200,13 @@ field_element_from_string:
         +ct_sbc FE_SUB_BORROW (.A,X) (.B,X) FE_SUB_BORROW (.C,X) FE_ADD_TMP1 FE_ADD_TMP2
 	    ;; XXX It's prooobably okay to reuse those tmps, right?
     }
-	
+
 	LDA #$00
 	SUB FE_SUB_BORROW
     STA MASK                    ; MASK = 0x00 - carry
 	LDA #$00
     STA FE_SUB_CARRY            ; Zero the borrow again
-	
+
     !for .i, 0, FE_WORDS-1 {
 	    LDX .i
 	    LDA (P434_PRIME_2,X)
@@ -214,9 +214,9 @@ field_element_from_string:
         +ct_adc FE_SUB_BORROW (.C,X) A FE_SUB_BORROW (.C,X)
     }
 }
-	
+
 ;; Multiply two field elements .A and .B into .C = .A * .B, unreduced modulo the prime.
-;; 
+;;
 ;; The bitlength of .A and .B should be FE_WORDS times the size of a
 ;; word (8-bits, obviously).
 !macro field_element_mul .A, .B, ~.C {
@@ -246,7 +246,7 @@ field_element_from_string:
         LDA #0
         STA FE_MUL_T            ; T = 0
     }
-	
+
 	!for .i, 0, 2*FE_WORDS-1 {
         !for .j, .i-FE_WORDS+1, FE_WORDS {
 	        LDA .i
@@ -271,11 +271,11 @@ field_element_from_string:
         LDA #0
         STA FE_MUL_T            ; T = 0
     }
-	
+
 	LDX #2*FE_WORDS-1
     LDA FE_MUL_V
     STA .c,X                    ; C[2*FE_WORDS-1] = V
 }
-	
-test_field_element_mul: 
-    
+
+test_field_element_mul:
+
