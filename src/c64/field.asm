@@ -154,33 +154,33 @@ field_element_from_string:
 ;; Outputs
 ;;  - C in [0, 2*P434_PRIME-1]
 !macro field_element_add .A, .B, ~.C {
-	LDA #$00                    ; Zero the carry
+    LDA #$00                    ; Zero the carry
     STA FE_ADD_CARRY
 
     !for .i, 0, FE_WORDS-1 {    ; Add the field elements
-	    LDX .i
+        LDX .i
         +ct_adc FE_ADD_CARRY (.A,X) (.B,X) FE_ADD_CARRY (.C,X) FE_ADD_TMP1
     }
 
-	LDA #$00                    ; Zero the carry again
+    LDA #$00                    ; Zero the carry again
     STA FE_ADD_CARRY
 
-	!for .i, 0, FE_WORDS-1 {    ; Subtract any overflow
-	    LDX .i
+    !for .i, 0, FE_WORDS-1 {    ; Subtract any overflow
+        LDX .i
         +ct_sbc FE_ADD_CARRY (.C,X) (P434_PRIME_2,X) FE_ADD_CARRY (.C,X) FE_ADD_TMP1 FE_ADD_TMP2
     }
 
     LDA #$00
     SUB FE_ADD_CARRY
-	STA MASK                    ; MASK = 0x00 - carry
-	LDA #$00
+    STA MASK                    ; MASK = 0x00 - carry
+    LDA #$00
     STA FE_ADD_CARRY            ; Zero the carry again
 
     !for .i, 0, FE_WORDS-1 {    ; Conditionally add the overflow back in
         LDX .i
-	    LDA (P434_PRIME_2,X)
+        LDA (P434_PRIME_2,X)
         AND MASK                ; 2*P434_PRIME & MASK
-	    +ct_adc FE_ADD_CARRY (.C,X) A FE_ADD_CARRY (.C,X) FE_ADD_TMP1
+        +ct_adc FE_ADD_CARRY (.C,X) A FE_ADD_CARRY (.C,X) FE_ADD_TMP1
     }
 }
 
@@ -196,20 +196,20 @@ field_element_from_string:
     STA FE_SUB_BORROW
 
     !for .i, 0, FE_WORDS-1 {    ; Do the subtraction
-	    LDX .i
+        LDX .i
         +ct_sbc FE_SUB_BORROW (.A,X) (.B,X) FE_SUB_BORROW (.C,X) FE_ADD_TMP1 FE_ADD_TMP2
-	    ;; XXX It's prooobably okay to reuse those tmps, right?
+        ;; XXX It's prooobably okay to reuse those tmps, right?
     }
 
-	LDA #$00
-	SUB FE_SUB_BORROW
+    LDA #$00
+    SUB FE_SUB_BORROW
     STA MASK                    ; MASK = 0x00 - carry
-	LDA #$00
+    LDA #$00
     STA FE_SUB_CARRY            ; Zero the borrow again
 
     !for .i, 0, FE_WORDS-1 {
-	    LDX .i
-	    LDA (P434_PRIME_2,X)
+        LDX .i
+        LDA (P434_PRIME_2,X)
         AND MASK                ; 2*P434_PRIME & MASK
         +ct_adc FE_SUB_BORROW (.C,X) A FE_SUB_BORROW (.C,X)
     }
@@ -222,80 +222,80 @@ field_element_from_string:
 ;;
 ;; We assume that we have at least 2 * FE_WORDS - 1 words in .C.
 !macro field_element_mul .A, .B, ~.C {
-	LDA #0
+    LDA #0
     STA FE_MUL_CARRY            ; Zero the carry
 
-	!for .i, 0, FE_WORDS-1 {
+    !for .i, 0, FE_WORDS-1 {
         !for .j, 0, .i {
-	        LDA .i              ; XXX do these need to be #.i, etc.?
+            LDA .i              ; XXX do these need to be #.i, etc.?
             SBC .j
-	        TAX                 ; X = i-j
-	        LDY .j              ; Y = j
+            TAX                 ; X = i-j
+            LDY .j              ; Y = j
             +ct_mul (.A,Y) (.B,X) FE_MUL_RESULT+1 FE_MUL_RESULT
-	        +ct_adc #0           FE_MUL_RESULT   FE_MUL_V FE_MUL_CARRY FE_MUL_V FE_MUL_TMP
-	        +ct_adc FE_MUL_CARRY FE_MUL_RESULT+1 FE_MUL_U FE_MUL_CARRY FE_MUL_U FE_MUL_TMP
-	        LDA FE_MUL_T        ; T = T + carry
-	        CLC
+            +ct_adc #0           FE_MUL_RESULT   FE_MUL_V FE_MUL_CARRY FE_MUL_V FE_MUL_TMP
+            +ct_adc FE_MUL_CARRY FE_MUL_RESULT+1 FE_MUL_U FE_MUL_CARRY FE_MUL_U FE_MUL_TMP
+            LDA FE_MUL_T        ; T = T + carry
+            CLC
             ADC FE_MUL_CARRY
         }
-	    LDX .i
-	    LDA FE_MUL_V
+        LDX .i
+        LDA FE_MUL_V
         STA .c,X                ; C[i] = V
-	    LDA FE_MUL_U
+        LDA FE_MUL_U
         STA FE_MUL_V            ; V = U
-	    LDA FE_MUL_T
+        LDA FE_MUL_T
         STA FE_MUL_U            ; U = T
         LDA #0
         STA FE_MUL_T            ; T = 0
     }
 
-	!for .i, 0, 2*FE_WORDS-1 {
+    !for .i, 0, 2*FE_WORDS-1 {
         !for .j, .i-FE_WORDS+1, FE_WORDS {
-	        LDA .i
+            LDA .i
             SBC .j
-	        TAX                 ; X = i-j
-	        LDY .j              ; Y = j
+            TAX                 ; X = i-j
+            LDY .j              ; Y = j
             +ct_mul (.A,Y) (.B,X) FE_MUL_RESULT+1 FE_MUL_RESULT
             +ct_mul (.A,Y) (.B,X) FE_MUL_RESULT+1 FE_MUL_RESULT
-	        +ct_adc FE_MUL_CARRY FE_MUL_RESULT   FE_MUL_V FE_MUL_CARRY FE_MUL_V FE_MUL_TMP
-	        +ct_adc FE_MUL_CARRY FE_MUL_RESULT+1 FE_MUL_U FE_MUL_CARRY FE_MUL_U FE_MUL_TMP
-	        LDA FE_MUL_T        ; T = T + carry
-	        CLC
+            +ct_adc FE_MUL_CARRY FE_MUL_RESULT   FE_MUL_V FE_MUL_CARRY FE_MUL_V FE_MUL_TMP
+            +ct_adc FE_MUL_CARRY FE_MUL_RESULT+1 FE_MUL_U FE_MUL_CARRY FE_MUL_U FE_MUL_TMP
+            LDA FE_MUL_T        ; T = T + carry
+            CLC
             ADC FE_MUL_CARRY
         }
-	    LDX .i
-	    LDA FE_MUL_V
+        LDX .i
+        LDA FE_MUL_V
         STA .c,X                ; C[i] = V
-	    LDA FE_MUL_U
+        LDA FE_MUL_U
         STA FE_MUL_V            ; V = U
-	    LDA FE_MUL_T
+        LDA FE_MUL_T
         STA FE_MUL_U            ; U = T
         LDA #0
         STA FE_MUL_T            ; T = 0
     }
 
-	LDX #2*FE_WORDS-1
+    LDX #2*FE_WORDS-1
     LDA FE_MUL_V
     STA .c,X                    ; C[2*FE_WORDS-1] = V
 }
 
 ;; Montgomery reduce a field element .A by the P434 prime modulus and store it in .B.
 !macro field_element_rdc .A ~.B {
-	LDA #0
+    LDA #0
     STA FE_RDC_CARRY            ; Zero the carry
 
-	;; COUNT = ZERO_WORDS, i.e. the number of least significant words in
-	;; P434_PRIME_PLUS_1 which are 0.
+    ;; COUNT = ZERO_WORDS, i.e. the number of least significant words in
+    ;; P434_PRIME_PLUS_1 which are 0.
     LDA ZERO_WORDS
-	STA FE_RDC_COUNT
+    STA FE_RDC_COUNT
 
-	!for .i, 0, FE_WORDS {      ; Zero out the result
-	    LDX .i
-	    LDA #0
+    !for .i, 0, FE_WORDS {      ; Zero out the result
+        LDX .i
+        LDA #0
         STA (.B,X)
     }
 
-	;; Multiply by the P434 prime.
+    ;; Multiply by the P434 prime.
     !for .i, 0, FE_WORDS {
         LDA .i
         SBC ZERO_WORDS
@@ -303,12 +303,12 @@ field_element_from_string:
         ADC 1
         STA FE_RDC_SKIP    ; FE_RDC_SKIP = .i - ZERO_WORDS + 1
         !for .j, 0, FE_RDC_SKIP {
-	        LDA .i
+            LDA .i
             SBC .j
-	        TAX                 ; X = i-j
-	        LDY .j              ; Y = j
+            TAX                 ; X = i-j
+            LDY .j              ; Y = j
 
-	        ;; Exploit the structure of the P434 prime, where if we add 1 we get
+            ;; Exploit the structure of the P434 prime, where if we add 1 we get
             ;; a number whose first 192 bits are 0s.
             +ct_mul (.B,Y) (P434_PRIME_PLUS_1,X) FE_RDC_RESULT+1 FE_RDC_RESULT
             +ct_adc #0           FE_RDC_RESULT   FE_RDC_V FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
@@ -317,72 +317,72 @@ field_element_from_string:
             CLC
             ADC FE_RDC_CARRY
         }
-	    LDX .i
-	    +ct_adc #0           FE_RDC_V (.A,X) FE_RDC_CARRY FE_RDC_V
+        LDX .i
+        +ct_adc #0           FE_RDC_V (.A,X) FE_RDC_CARRY FE_RDC_V
         +ct_adc FE_RDC_CARRY FE_RDC_U #0     FE_RDC_CARRY FE_RDC_U
         LDA FE_RDC_T            ; T = T + carry
         CLC
         ADC FE_RDC_CARRY
-	    LDX .i
+        LDX .i
         LDA FE_RDC_V
         STA (.B,X)              ; B[i] = V
-	    LDA FE_RDC_U
+        LDA FE_RDC_U
         STA FE_RDC_V            ; V = U
-	    LDA FE_RDC_T
+        LDA FE_RDC_T
         STA FE_RDC_U            ; U = T
         LDA #0
         STA FE_RDC_T            ; T = 0
     }
-	;; Multiply by the 192 0-bits of the modulus
-	!for .i, FE_WORDS, 2*FE_WORDS-1 {
-	    ;; XXX rewrite the !if to use BEQ on the zero flag
-	    !if FE_RDC_COUNT > 0 {
-	        LDA FE_RDC_COUNT
+    ;; Multiply by the 192 0-bits of the modulus
+    !for .i, FE_WORDS, 2*FE_WORDS-1 {
+        ;; XXX rewrite the !if to use BEQ on the zero flag
+        !if FE_RDC_COUNT > 0 {
+            LDA FE_RDC_COUNT
             SBC #1
             STA FE_RDC_COUNT
         }
-	    !for .j, .i-FE_WORDS+1, FE_WORDS-FE_RDC_COUNT {
-	        LDA .i
+        !for .j, .i-FE_WORDS+1, FE_WORDS-FE_RDC_COUNT {
+            LDA .i
             SBC .j
-	        TAX                 ; X = i-j
-	        LDY .j              ; Y = j
+            TAX                 ; X = i-j
+            LDY .j              ; Y = j
 
             +ct_mul (.B,Y) (P434_PRIME_PLUS_ONE,X) FE_RDC_RESULT+1 FE_RDC_RESULT
-	        +ct_adc #0           FE_RDC_RESULT   FE_RDC_V FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
+            +ct_adc #0           FE_RDC_RESULT   FE_RDC_V FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
             +ct_adc FE_RDC_CARRY FE_RDC_RESULT+1 FE_RDC_U FE_RDC_CARRY FE_RDC_U FE_RDC_TMP
             LDA FE_RDC_T
             CLC
             ADC FE_RDC_CARRY
         }
-	    LDX .i
-	    +ct_adc #0           FE_RDC_V (.A,X) FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
+        LDX .i
+        +ct_adc #0           FE_RDC_V (.A,X) FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
         +ct_adc FE_RDC_CARRY FE_RDC_U #0     FE_RDC_CARRY FE_RDC_U FE_RDC_TMP
         LDA FE_RDC_T
         CLC
         ADC FE_RDC_CARRY
-	    LDA .i
-	    SEC
-	    SBC FE_WORDS
-	    TAX
+        LDA .i
+        SEC
+        SBC FE_WORDS
+        TAX
         LDA FE_RDC_V
         STA (.B,X)              ; B[i-FE_WORDS] = V
-	    LDA FE_RDC_U
+        LDA FE_RDC_U
         STA FE_RDC_V            ; V = U
-	    LDA FE_RDC_T
+        LDA FE_RDC_T
         STA FE_RDC_U            ; U = T
         LDA #0
         STA FE_RDC_T            ; T = 0
     }
-	;; Deal with the final carry flag
-	;; 111 = 2 * FE_WORDS - 1
-	+ct_adc #0 FE_RDC_V .B+111 FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
-	;; 55 = FE_WORDS - 1
+    ;; Deal with the final carry flag
+    ;; 111 = 2 * FE_WORDS - 1
+    +ct_adc #0 FE_RDC_V .B+111 FE_RDC_CARRY FE_RDC_V FE_RDC_TMP
+    ;; 55 = FE_WORDS - 1
     LDX 55
     LDA FE_RDC_V
     STA (.B,X)                  ; B[55] = V
 }
 
-	;; XXX Check SBCs we might need to SEC first
+    ;; XXX Check SBCs we might need to SEC first
 
 ;; Square the field element .A and store it in .B.
 !macro field_element_sqr .A ~.B {
@@ -394,7 +394,7 @@ field_element_from_string:
 !macro field_element_copy .A ~.B {
     !for .i, 0, FE_WORDS {
         LDX .i
-	    LDA (.A,X)
+        LDA (.A,X)
         STA (.B,X)
     }
 }
