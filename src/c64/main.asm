@@ -18,4 +18,7 @@
 !source "constants.asm"	
 !source "subtle.asm"
 !source "field.asm"
+!source "galois.asm"
+!source "isogeny.asm"
+!source "montgomery.asm"
 !source "rand.asm"

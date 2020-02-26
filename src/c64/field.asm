@@ -280,7 +280,7 @@ field_element_from_string:
 }
 
 ;; Montgomery reduce a field element .A by the P434 prime modulus and store it in .B.
-!macro field_element_reduce .A ~.B {
+!macro field_element_rdc .A ~.B {
 	LDA #0
     STA FE_RDC_CARRY            ; Zero the carry
 
@@ -383,6 +383,29 @@ field_element_from_string:
 }
 
 	;; XXX Check SBCs we might need to SEC first
+
+;; Square the field element .A and store it in .B.
+!macro field_element_sqr .A ~.B {
+    +field_element_mul .A .A FE_SQR_TMP
+    +field_element_rdc FE_SQR_TMP .B
+}
+
+;; Copy the field element .A to .B.
+!macro field_element_copy .A ~.B {
+    !for .i, 0, FE_WORDS {
+        LDX .i
+	    LDA (.A,X)
+        STA (.B,X)
+    }
+}
+
+;; Modular negation for the field element .A, computes -.A (mod P434_PRIME)
+;; and stores it in .B.
+;;
+;; A must be in [0, 2*P434_PRIME-1], output is in the same range.
+!macro field_element_neg .A ~.B {
+    +field_element_sub .A P434_PRIME_2 .B
+}
 
 test_field_element_mul:
 
