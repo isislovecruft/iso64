@@ -8,6 +8,8 @@
 ;; - isis agora lovecruft <isis@patternsinthevoid.net>
 
 ;; Constants and pseudo registers.
+;;
+;; We shove all the scratch space at the top of the userspace at $c000-$cfff.
 
 !cpu 6510                       ; For 6502/6510 with undocumented opcodes
 !zone constants                 ; Namespacing
@@ -62,11 +64,23 @@ FE_WORDS = 56
 !addr FE2_SQR_TMP2 = FE_NEG_TMP - (3 * FE_WORDS)
 !addr FE2_SQR_TMP3 = FE_NEG_TMP - (4 * FE_WORDS)
 
+;; Pseudo registers for GF(p^2) multiplication.
+!addr FE2_MUL_TMP1 = FE_NEG_TMP - (5 * FE_WORDS)
+!addr FE2_MUL_TMP2 = FE_NEG_TMP - (6 * FE_WORDS)
+!addr FE2_MUL_TMP3 = FE_NEG_TMP - (7 * FE_WORDS)
+!addr FE2_MUL_TMP4 = FE_NEG_TMP - (8 * FE_WORDS)
+!addr FE2_MUL_TMP5 = FE_NEG_TMP - (9 * FE_WORDS)
+
+;; Pseudo registers for GF(p^2) element inversion.
+!addr FE2_INV_TMP1 = FE_NEG_TMP - (10 * FE_WORDS)
+!addr FE2_INV_TMP2 = FE_NEG_TMP - (11 * FE_WORDS)
+!addr FE2_INV_TMP3 = FE_NEG_TMP - (12 * FE_WORDS)
+
 ;; XXX should maybe double check these addresses to make sure we're not
 ;;     crossing page boundaries
-!addr FE_ADD_A = FE_NEG_TMP - (5 * FE_WORDS)
-!addr FE_ADD_B = FE_NEG_TMP - (6 * FE_WORDS)
-!addr FE_ADD_C = FE_NEG_TMP - (7 * FE_WORDS)
+!addr FE_ADD_A = FE_NEG_TMP - (13 * FE_WORDS)
+!addr FE_ADD_B = FE_NEG_TMP - (14 * FE_WORDS)
+!addr FE_ADD_C = FE_NEG_TMP - (15 * FE_WORDS)
 
 ;; For some reason for the following with the ACME Crossass assembler
 ;; in order to store for example $ABCDEF01 at a given location in the
@@ -78,7 +92,7 @@ FE_WORDS = 56
 ;; frankly I do not care to find out.
 
 ;; P434_PRIME = 24439423661345221551909145011457493619085780243761596511325807336205221239331976725970216671828618445898719026692884939342314733567
-!addr P434_PRIME = FE_NEG_TMP - (8 * FE_WORDS)
+!addr P434_PRIME = FE_NEG_TMP - (16 * FE_WORDS)
 
     LDA *                       ; Save program counter
     PHA                         ; Push it to the global stack
@@ -92,7 +106,7 @@ FE_WORDS = 56
     * = MASK                    ; Restore it
 
 ;; 2 * P434_PRIME
-!addr P434_PRIME_2 = FE_NEG_TMP - (9 * FE_WORDS)
+!addr P434_PRIME_2 = FE_NEG_TMP - (17 * FE_WORDS)
 
     LDA *                       ; Save program counter
     PHA                         ; Push it to the global stack
@@ -106,7 +120,7 @@ FE_WORDS = 56
     * = MASK                    ; Restore it
 
 ;; P434_PRIME + 1
-!addr P434_PRIME_PLUS_1 = FE_NEG_TMP - (10 * FE_WORDS)
+!addr P434_PRIME_PLUS_1 = FE_NEG_TMP - (18 * FE_WORDS)
 
     LDA *                       ; Save program counter
     PHA                         ; Push it to the global stack

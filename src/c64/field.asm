@@ -205,7 +205,7 @@ field_element_from_string:
     SUB FE_SUB_BORROW
     STA MASK                    ; MASK = 0x00 - carry
     LDA #$00
-    STA FE_SUB_CARRY            ; Zero the borrow again
+    STA FE_SUB_BORROW           ; Zero the borrow again
 
     !for .i, 0, FE_WORDS-1 {
         LDX .i
@@ -280,6 +280,11 @@ field_element_from_string:
 }
 
 ;; Montgomery reduce a field element .A by the P434 prime modulus and store it in .B.
+;;
+;; Nota bene this is not a *full* reduction modulo the group order (i.e. P434_PRIME) but
+;; rather modulo the Montgomery modulus (R = 2^448), s.t. .B = .A/R (mod 2*P434_PRIME).
+;; The result, .B, will be in the range [0, 2*P434_PRIME-1] if the input, .A, is s.t.
+;; .A < 2^448 * P434_PRIME, and .A is also assumed to be in Montgomery representation.
 !macro field_element_rdc .A ~.B {
     LDA #0
     STA FE_RDC_CARRY            ; Zero the carry
@@ -391,7 +396,7 @@ field_element_from_string:
 }
 
 ;; Copy the field element .A to .B.
-!macro field_element_copy .A ~.B {
+!macro field_element_cpy .A ~.B {
     !for .i, 0, FE_WORDS {
         LDX .i
         LDA (.A,X)
@@ -407,5 +412,37 @@ field_element_from_string:
     +field_element_sub .A P434_PRIME_2 .B
 }
 
+;; "Double" subtraction for elements in GF(p434).
+!macro field_element_dsb {
+    NOP
+}
+
+;; Caveat emptor: this takes 422 multiplications.  Don't do this, if at all possible.
+!macro field_element_inv .A, ~.B {
+    ;; Precompute multiplication tables
+	+field_element_sqr .A FE_INV_TMP1                              ; t1   = a^2
+    +field_element_mul .A FE_INV_TMP1 FE_INV_TABLE0                ; t[0] = a^3
+    +field_element_mul FE_INV_TABLE0  FE_INV_TMP1   FE_INV_TABLE1  ; t[1] = a^5
+    +field_element_mul FE_INV_TABLE1  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE2  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE3  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE4  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE5  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE6  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE7  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE8  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE9  FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE10 FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE11 FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE12 FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE13 FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+    +field_element_mul FE_INV_TABLE14 FE_INV_TMP1   FE_INV_TABLE2  ; t[2] = a^7
+
+}
+
+!macro field_element_inv .A, ~.B {
+    NOP
+}
+	
 test_field_element_mul:
 
