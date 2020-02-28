@@ -421,7 +421,7 @@ field_element_from_string:
 ;;
 ;; Caveat emptor: this takes 422 multiplications and a similar number of reductions.
 ;; Don't do this, if at all possible.
-!macro field_element_chain .A, ~.B {
+!macro field_element_pow34 .A, ~.B {
     ;; Precompute multiplication tables
 	+field_element_sqr .A FE_INV_TMP1                               ; tmp1  = a^2
     +field_element_mul .A FE_INV_TMP1 FE_INV_TMP2
@@ -845,7 +845,7 @@ field_element_from_string:
         +field_element_mul FE_INV_TABLE30 FE_INV_TMP1 FE_INV_TMP2 ;*a^63
         +field_element_rdc                FE_INV_TMP2 FE_INV_TMP1 ;       (mod p434)
         ;; = a^6109855915336305387977286252864373404771445060940399127831451834051305309832994181492554167957154611474679756673221234835578683391
-        ;; 6109855915336305387977286252864373404771445060940399127831451348772265301121477877486282601603802486006080150942916574970594197503
+        ;; = a^{(24439423661345221551909145011457493619085780243761596511325807336205221239331976725970216671828618445898719026692884939342314733567 - 3)/4}
     }
     ;; big numnum, smol compute
 }
@@ -853,7 +853,12 @@ field_element_from_string:
 ;; Field element inversion in GF(p434), .B = R/.A (mod p434).
 ;;
 !macro field_element_inv .A, ~.B {
-
+    +field_element_cpy   .A FE_INV_TMP4
+    +field_element_pow34 FE_INV_TMP4 .B                           ; b = a^{(p434-3)/4}
+    +field_element_sqr   .B FE_INV_TMP4                           ;
+    +field_element_sqr   FE_INV_TMP4 .B                           ; b = a^(p434-3)
+    +field_element_mul   .A .B FE_INV_TMP4
+    +field_element_rdc   FE_INV_TMP4 .B
 }
 
 test_field_element_mul:

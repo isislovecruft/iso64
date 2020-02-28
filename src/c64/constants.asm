@@ -133,6 +133,37 @@ FE_WORDS = 56
     STA MASK                    ; Store it in a junk spot for now
     * = MASK                    ; Restore it
 
+;; Scratch space for chained inversion field element squarings.
+!addr FE_INV_TMP1 = FE_NEG_TMP - (19 * FE_WORDS)
+!addr FE_INV_TMP2 = FE_NEG_TMP - (20 * FE_WORDS)
+!addr FE_INV_TMP3 = FE_NEG_TMP - (21 * FE_WORDS)
+!addr FE_INV_TMP4 = FE_NEG_TMP - (22 * FE_WORDS)
+
+;; Precomputed tables for field element inversions.
+!addr FE_INV_TABLE0  = FE_NEG_TMP - (23 * FE_WORDS)
+!addr FE_INV_TABLE1  = FE_NEG_TMP - (24 * FE_WORDS)
+!addr FE_INV_TABLE2  = FE_NEG_TMP - (25 * FE_WORDS)
+!addr FE_INV_TABLE3  = FE_NEG_TMP - (26 * FE_WORDS)
+!addr FE_INV_TABLE5  = FE_NEG_TMP - (27 * FE_WORDS)
+!addr FE_INV_TABLE6  = FE_NEG_TMP - (28 * FE_WORDS)
+!addr FE_INV_TABLE7  = FE_NEG_TMP - (29 * FE_WORDS)
+!addr FE_INV_TABLE9  = FE_NEG_TMP - (30 * FE_WORDS)
+!addr FE_INV_TABLE10 = FE_NEG_TMP - (31 * FE_WORDS)
+!addr FE_INV_TABLE12 = FE_NEG_TMP - (32 * FE_WORDS)
+!addr FE_INV_TABLE13 = FE_NEG_TMP - (33 * FE_WORDS)
+!addr FE_INV_TABLE14 = FE_NEG_TMP - (34 * FE_WORDS)
+!addr FE_INV_TABLE16 = FE_NEG_TMP - (35 * FE_WORDS)
+!addr FE_INV_TABLE19 = FE_NEG_TMP - (36 * FE_WORDS)
+!addr FE_INV_TABLE20 = FE_NEG_TMP - (37 * FE_WORDS)
+!addr FE_INV_TABLE21 = FE_NEG_TMP - (38 * FE_WORDS)
+!addr FE_INV_TABLE22 = FE_NEG_TMP - (39 * FE_WORDS)
+!addr FE_INV_TABLE23 = FE_NEG_TMP - (40 * FE_WORDS)
+!addr FE_INV_TABLE24 = FE_NEG_TMP - (41 * FE_WORDS)
+!addr FE_INV_TABLE25 = FE_NEG_TMP - (42 * FE_WORDS)
+!addr FE_INV_TABLE26 = FE_NEG_TMP - (43 * FE_WORDS)
+!addr FE_INV_TABLE28 = FE_NEG_TMP - (44 * FE_WORDS)
+!addr FE_INV_TABLE30 = FE_NEG_TMP - (45 * FE_WORDS)
+	
 ;; Number of field elements for Alice's 2-isogenisation strategy.
 ALICE_ELEMENTS = 108
 ;; Number of field elements for Bob's 3-isogenisation strategy
